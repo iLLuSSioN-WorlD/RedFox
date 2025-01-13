@@ -5,7 +5,6 @@ using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Threading.Tasks;
 
-
 namespace DiscordBot
 {
     public class CommandHandler
@@ -14,22 +13,13 @@ namespace DiscordBot
         private readonly IServiceProvider _services;
         private readonly Config _config;
 
-        public CommandHandler(IServiceProvider services, Config config)
+        public CommandHandler(DiscordSocketClient client, IServiceProvider services, Config config)
         {
+            _client = client;
             _services = services;
             _config = config;
 
-            // Настройка DiscordSocketClient с минимально необходимыми GatewayIntents
-            _client = new DiscordSocketClient(new DiscordSocketConfig
-            {
-                GatewayIntents = GatewayIntents.Guilds |
-                                 GatewayIntents.GuildMessages |
-                                 GatewayIntents.DirectMessages |
-                                 GatewayIntents.MessageContent //| // Если нужно читать текст сообщений
-                                 //GatewayIntents.AllUnprivileged
-            });
-
-            _client.Log += LogAsync;
+            // Подключаем обработчик событий
             _client.MessageReceived += HandleCommandAsync;
         }
 
@@ -64,12 +54,6 @@ namespace DiscordBot
             }
 
             await userMessage.Channel.SendMessageAsync("Неизвестная команда.");
-        }
-
-        private Task LogAsync(LogMessage log)
-        {
-            Console.WriteLine(log.ToString());
-            return Task.CompletedTask;
         }
     }
 }

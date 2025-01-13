@@ -35,13 +35,13 @@ namespace DiscordBot
 
             try
             {
-                // Используем Rest для глобальной регистрации
+                // Регистрация глобальных слэш-команд
                 await _client.BulkOverwriteGlobalApplicationCommandsAsync(commands.ToArray());
                 Console.WriteLine("Слэш-команды успешно зарегистрированы.");
             }
             catch (HttpException ex)
             {
-                Console.WriteLine($"Ошибка при регистрации команд: {ex.Message}");
+                Console.WriteLine($"Ошибка при регистрации слэш-команд: {ex.Message}");
             }
         }
     }

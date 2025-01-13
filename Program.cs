@@ -12,8 +12,16 @@ namespace DiscordBot
         {
             var configManager = new ConfigManager(); // Загружаем конфигурацию
 
+            var client = new DiscordSocketClient(new DiscordSocketConfig
+            {
+                GatewayIntents = GatewayIntents.Guilds |
+                                 GatewayIntents.GuildMessages |
+                                 GatewayIntents.DirectMessages |
+                                 GatewayIntents.MessageContent // Если нужно читать текст сообщений
+            });
+
             var serviceProvider = new ServiceCollection()
-                .AddSingleton<DiscordSocketClient>()
+                .AddSingleton(client)
                 .AddSingleton<CommandHandler>()
                 .AddSingleton<ICommand, PingCommand>()
                 .AddSingleton<ICommand, RollCommand>() // Регистрируем команду Roll
@@ -28,10 +36,23 @@ namespace DiscordBot
             var slashCommandHandler = serviceProvider.GetRequiredService<SlashCommandHandler>();
             var interactionHandler = serviceProvider.GetRequiredService<InteractionHandler>();
 
-            await bot.InitializeAsync();
-            //await slashCommandHandler.RegisterCommandsAsync();
+            client.Log += LogAsync;
 
+            client.Ready += async () =>
+            {
+                Console.WriteLine("Клиент готов. Регистрируем слэш-команды...");
+                await slashCommandHandler.RegisterCommandsAsync();
+            };
+
+            // Запускаем бота
+            await bot.InitializeAsync();
             await Task.Delay(-1);
+        }
+
+        private static Task LogAsync(LogMessage log)
+        {
+            Console.WriteLine(log.ToString());
+            return Task.CompletedTask;
         }
     }
 }
