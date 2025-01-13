@@ -1,4 +1,5 @@
 ﻿using Discord;
+using Discord.WebSocket;
 using System.Threading.Tasks;
 
 namespace DiscordBot
@@ -29,6 +30,21 @@ namespace DiscordBot
 
             // Отправляем сообщение в канал
             await channel.SendMessageAsync(message);
+        }
+
+        public async Task ExecuteSlashCommandAsync(SocketSlashCommand command)
+        {
+            // Генерируем случайное число от 1 до 100
+            var randomNumber = _randomService.Generate(1, 100);
+
+            // Конвертируем число в эмодзи с заданным количеством цифр (3)
+            var emojiString = _emojiConverter.ConvertNumberToEmoji(randomNumber, 3);
+
+            // Формируем сообщение
+            var message = $"Ваше случайное число (1-100): {emojiString}";
+
+            // Отправляем ответ на слэш-команду
+            await command.RespondAsync(message);
         }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 
 namespace DiscordBot
 {
@@ -21,23 +22,16 @@ namespace DiscordBot
         public string ConvertNumberToEmoji(int number, int? totalDigits = null)
         {
             // Определяем количество цифр для форматирования
-            var numberString = number.ToString();
             var formattedNumber = totalDigits.HasValue
                 ? number.ToString($"D{totalDigits.Value}") // Форматируем с ведущими нулями
-                : numberString; // Используем длину числа
+                : number.ToString(); // Используем длину числа
 
-            var result = "";
+            // Конвертируем каждую цифру в эмодзи и добавляем пробелы
+            var emojiList = formattedNumber
+                .Select(digit => _emojiMapping.ContainsKey(digit) ? _emojiMapping[digit] : string.Empty)
+                .Where(emoji => !string.IsNullOrEmpty(emoji)); // Убираем пустые значения
 
-            // Конвертируем каждую цифру в эмодзи
-            foreach (var digit in formattedNumber)
-            {
-                if (_emojiMapping.TryGetValue(digit, out var emoji))
-                {
-                    result += emoji;
-                }
-            }
-
-            return result;
+            return string.Join(" ", emojiList); // Добавляем пробелы между эмодзи
         }
     }
 }

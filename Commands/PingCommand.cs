@@ -1,4 +1,5 @@
 ﻿using Discord;
+using Discord.WebSocket;
 using System.Threading.Tasks;
 
 namespace DiscordBot
@@ -11,6 +12,12 @@ namespace DiscordBot
         {
             // Ответ на команду "ping"
             await channel.SendMessageAsync($"Pong! Привет, <@{user.Id}>!");
+        }
+
+        public async Task ExecuteSlashCommandAsync(SocketSlashCommand command)
+        {
+            // Ответ для слэш-команды "ping"
+            await command.RespondAsync("Pong!");
         }
     }
 }
