@@ -1,7 +1,14 @@
 ﻿using Discord;
+using Discord.WebSocket;
+using System.Threading.Tasks;
 
-public interface ICommand
+namespace DiscordBot
 {
-    string CommandName { get; }
-    Task ExecuteAsync(IMessageChannel channel, IUser user);
+    public interface ICommand
+    {
+        string CommandName { get; }
+        Task ExecuteAsync(IMessageChannel channel, IUser user);
+        Task ExecuteSlashCommandAsync(SocketSlashCommand command);
+        ApplicationCommandProperties RegisterSlashCommand(); // Метод для регистрации команды
+    }
 }

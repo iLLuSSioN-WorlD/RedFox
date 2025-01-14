@@ -10,7 +10,7 @@ namespace DiscordBot
         static async Task Main(string[] args)
         {
             var configManager = new ConfigManager(); // Загружаем основную конфигурацию
-            var twitchConfigManager = new TwitchConfigManager(); // Создаём менеджер для Twitch
+            var twitchConfigManager = new TwitchConfigManager();
             var twitchConfig = twitchConfigManager.LoadConfig(TwitchConfigManager.ConfigFilePath); // Загружаем конфигурацию Twitch
 
             var client = new DiscordSocketClient(new DiscordSocketConfig
@@ -21,20 +21,26 @@ namespace DiscordBot
                                  GatewayIntents.MessageContent
             });
 
+
+
             var serviceProvider = new ServiceCollection()
                 .AddSingleton(client)
                 .AddSingleton<CommandHandler>()
                 .AddSingleton<ICommand, PingCommand>()
                 .AddSingleton<ICommand, RollCommand>()
-                .AddSingleton<ICommand, TwitchDropsCommand>() // Регистрация команды Twitch Drops
+                .AddSingleton<ICommand, TwitchDropsCommand>()
                 .AddSingleton<RandomNumberService>()
                 .AddSingleton<EmojiConverterService>()
                 .AddSingleton(configManager.Config)
-                .AddSingleton(twitchConfig) // Передаём TwitchConfig
-                .AddSingleton(new HttpClient()) // Передаём HttpClient
-                .AddSingleton(new TwitchAuthService(new HttpClient(), TwitchConfigManager.ConfigFilePath)) // Передаём путь к twitch.json
+                .AddSingleton(twitchConfig) // Передаём объект TwitchConfig
+                .AddSingleton(new HttpClient())
+                .AddSingleton<TwitchConfigManager>() // Регистрируем менеджер конфигурации
+                .AddSingleton<TwitchAuthService>()
                 .AddSingleton<TwitchDropsService>()
+                .AddSingleton<TwitchDropsScraper>()
                 .BuildServiceProvider();
+
+
 
             var bot = serviceProvider.GetRequiredService<CommandHandler>();
 

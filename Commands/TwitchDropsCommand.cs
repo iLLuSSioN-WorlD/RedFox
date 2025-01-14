@@ -6,37 +6,37 @@ namespace DiscordBot
 {
     public class TwitchDropsCommand : ICommand
     {
-        private readonly TwitchDropsService _twitchDropsService;
+        private readonly TwitchDropsScraper _scraper;
 
-        public TwitchDropsCommand(TwitchDropsService twitchDropsService)
+        public TwitchDropsCommand(TwitchDropsScraper scraper)
         {
-            _twitchDropsService = twitchDropsService;
+            _scraper = scraper;
         }
 
         public string CommandName => "twitchdrops";
 
-        // Обработка текстовой команды
         public async Task ExecuteAsync(IMessageChannel channel, IUser user)
         {
-            var drops = await _twitchDropsService.GetActiveDropsAsync();
-
-            var message = string.IsNullOrWhiteSpace(drops)
+            var drops = await _scraper.GetTwitchDropsAsync();
+            await channel.SendMessageAsync(string.IsNullOrWhiteSpace(drops)
                 ? "Сейчас нет активных Twitch Drops."
-                : $"Актуальные Twitch Drops:\n{drops}";
-
-            await channel.SendMessageAsync(message);
+                : $"Актуальные Twitch Drops:\n{drops}");
         }
 
-        // Обработка слэш-команды
         public async Task ExecuteSlashCommandAsync(SocketSlashCommand command)
         {
-            var drops = await _twitchDropsService.GetActiveDropsAsync();
-
-            var message = string.IsNullOrWhiteSpace(drops)
+            var drops = await _scraper.GetTwitchDropsAsync();
+            await command.RespondAsync(string.IsNullOrWhiteSpace(drops)
                 ? "Сейчас нет активных Twitch Drops."
-                : $"Актуальные Twitch Drops:\n{drops}";
+                : $"Актуальные Twitch Drops:\n{drops}");
+        }
 
-            await command.RespondAsync(message);
+        public ApplicationCommandProperties RegisterSlashCommand()
+        {
+            return new SlashCommandBuilder()
+                .WithName("twitchdrops")
+                .WithDescription("Получить информацию о текущих Twitch Drops")
+                .Build();
         }
     }
 }

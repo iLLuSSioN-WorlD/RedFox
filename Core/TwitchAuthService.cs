@@ -9,18 +9,14 @@ namespace DiscordBot
     public class TwitchAuthService
     {
         private readonly HttpClient _httpClient;
-        private readonly string _configPath;
         private readonly TwitchConfigManager _configManager;
-        private TwitchConfigManager.TwitchConfig _config; // Используем объект конфигурации
+        private TwitchConfigManager.TwitchConfig _config;
 
-        public TwitchAuthService(HttpClient httpClient, string configPath)
+        public TwitchAuthService(HttpClient httpClient, TwitchConfigManager configManager)
         {
             _httpClient = httpClient;
-            _configPath = configPath;
-            _configManager = new TwitchConfigManager();
-
-            // Загружаем конфигурацию из файла
-            _config = _configManager.LoadConfig(configPath);
+            _configManager = configManager;
+            _config = _configManager.LoadConfig(TwitchConfigManager.ConfigFilePath);
         }
 
         public async Task<string> GetAccessTokenAsync()
@@ -30,12 +26,11 @@ namespace DiscordBot
                 return _config.AccessToken; // Используем сохранённый токен
             }
 
-            // Попытка получить новый токен
             try
             {
                 var token = await RequestNewTokenAsync();
-                _config.AccessToken = token; // Сохраняем новый токен в конфигурации
-                _configManager.SaveConfig(_config, _configPath); // Сохраняем обновлённую конфигурацию в файл
+                _config.AccessToken = token;
+                _configManager.SaveConfig(_config, TwitchConfigManager.ConfigFilePath);
                 return token;
             }
             catch (Exception ex)

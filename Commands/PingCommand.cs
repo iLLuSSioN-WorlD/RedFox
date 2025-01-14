@@ -10,14 +10,20 @@ namespace DiscordBot
 
         public async Task ExecuteAsync(IMessageChannel channel, IUser user)
         {
-            // Ответ на команду "ping"
             await channel.SendMessageAsync($"Pong! Привет, <@{user.Id}>!");
         }
 
         public async Task ExecuteSlashCommandAsync(SocketSlashCommand command)
         {
-            // Ответ для слэш-команды "ping"
             await command.RespondAsync("Pong!");
+        }
+
+        public ApplicationCommandProperties RegisterSlashCommand()
+        {
+            return new SlashCommandBuilder()
+                .WithName("ping")
+                .WithDescription("Ответить Pong!")
+                .Build();
         }
     }
 }

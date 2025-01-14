@@ -85,26 +85,14 @@ namespace DiscordBot
             await slashCommand.RespondAsync("Неизвестная команда.", ephemeral: true);
         }
 
-
         private async Task RegisterCommandsAsync()
         {
-            var commands = new List<ApplicationCommandProperties>
+            var commands = new List<ApplicationCommandProperties>();
+
+            foreach (var service in _services.GetServices<ICommand>())
             {
-                new SlashCommandBuilder()
-                    .WithName("ping")
-                    .WithDescription("Ответить Pong!")
-                    .Build(),
-
-                new SlashCommandBuilder()
-                    .WithName("roll")
-                    .WithDescription("Сгенерировать случайное число от 1 до 100")
-                    .Build(),
-
-                new SlashCommandBuilder()
-                    .WithName("twitchdrops")
-                    .WithDescription("Получить информацию о текущих Twitch Drops")
-                    .Build(),
-            };
+                commands.Add(service.RegisterSlashCommand());
+            }
 
             try
             {
