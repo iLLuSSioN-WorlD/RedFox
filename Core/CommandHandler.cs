@@ -14,12 +14,14 @@ namespace DiscordBot
         private readonly DiscordSocketClient _client;
         private readonly IServiceProvider _services;
         private readonly Config _config;
+        private readonly TwitchDropsService _twitchDropsService;
 
-        public CommandHandler(DiscordSocketClient client, IServiceProvider services, Config config)
+        public CommandHandler(DiscordSocketClient client, IServiceProvider services, Config config, TwitchDropsService twitchDropsService)
         {
             _client = client;
             _services = services;
             _config = config;
+            _twitchDropsService = twitchDropsService;
 
             // Подключаем обработчики событий
             _client.MessageReceived += HandleCommandAsync;
@@ -96,7 +98,12 @@ namespace DiscordBot
                 new SlashCommandBuilder()
                     .WithName("roll")
                     .WithDescription("Сгенерировать случайное число от 1 до 100")
-                    .Build()
+                    .Build(),
+
+                new SlashCommandBuilder()
+                    .WithName("twitchdrops")
+                    .WithDescription("Получить информацию о текущих Twitch Drops")
+                    .Build(),
             };
 
             try

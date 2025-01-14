@@ -14,7 +14,7 @@ namespace DiscordBot
     {
         private const string ConfigFolder = "Resources";
         private const string ConfigFile = "config.json";
-        private const string ConfigFilePath = ConfigFolder + "/" + ConfigFile;
+        public static readonly string ConfigFilePath = Path.Combine(ConfigFolder, ConfigFile);
 
         public Config Config { get; private set; }
 

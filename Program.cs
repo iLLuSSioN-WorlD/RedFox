@@ -1,8 +1,7 @@
-﻿using Discord;
-using Discord.WebSocket;
+﻿using Discord.WebSocket;
+using Discord;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Threading.Tasks;
+using System.Net.Http;
 
 namespace DiscordBot
 {
@@ -10,32 +9,37 @@ namespace DiscordBot
     {
         static async Task Main(string[] args)
         {
-            var configManager = new ConfigManager(); // Загружаем конфигурацию
+            var configManager = new ConfigManager(); // Загружаем основную конфигурацию
+            var twitchConfigManager = new TwitchConfigManager(); // Создаём менеджер для Twitch
+            var twitchConfig = twitchConfigManager.LoadConfig(TwitchConfigManager.ConfigFilePath); // Загружаем конфигурацию Twitch
 
             var client = new DiscordSocketClient(new DiscordSocketConfig
             {
                 GatewayIntents = GatewayIntents.Guilds |
                                  GatewayIntents.GuildMessages |
                                  GatewayIntents.DirectMessages |
-                                 GatewayIntents.MessageContent // Если нужно читать текст сообщений
+                                 GatewayIntents.MessageContent
             });
 
             var serviceProvider = new ServiceCollection()
                 .AddSingleton(client)
-                .AddSingleton(configManager.Config) // Регистрируем конфигурацию в DI
                 .AddSingleton<CommandHandler>()
                 .AddSingleton<ICommand, PingCommand>()
-                .AddSingleton<ICommand, RollCommand>() // Регистрируем команду Roll
-                .AddSingleton<RandomNumberService>() // Регистрируем сервис рандома
-                .AddSingleton<EmojiConverterService>() // Регистрируем сервис конвертации в смайлики
-                
+                .AddSingleton<ICommand, RollCommand>()
+                .AddSingleton<ICommand, TwitchDropsCommand>() // Регистрация команды Twitch Drops
+                .AddSingleton<RandomNumberService>()
+                .AddSingleton<EmojiConverterService>()
+                .AddSingleton(configManager.Config)
+                .AddSingleton(twitchConfig) // Передаём TwitchConfig
+                .AddSingleton(new HttpClient()) // Передаём HttpClient
+                .AddSingleton(new TwitchAuthService(new HttpClient(), TwitchConfigManager.ConfigFilePath)) // Передаём путь к twitch.json
+                .AddSingleton<TwitchDropsService>()
                 .BuildServiceProvider();
 
             var bot = serviceProvider.GetRequiredService<CommandHandler>();
 
             client.Log += LogAsync;
 
-            // Запускаем бота
             await bot.InitializeAsync();
             await Task.Delay(-1);
         }
