@@ -2,60 +2,87 @@
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
-
-public class TwitchAuthService
+namespace DiscordBot
 {
-    private readonly TwitchConfigManager _configManager;
-    private readonly HttpClient _httpClient;
-
-    public TwitchAuthService(TwitchConfigManager configManager)
+    public class TwitchAuthService
     {
-        _configManager = configManager;
-        _httpClient = new HttpClient();
+        private readonly TwitchConfigManager _configManager;
+
+        public TwitchAuthService(TwitchConfigManager configManager)
+        {
+            _configManager = configManager;
+        }
+
+        public async Task AuthenticateAsync()
+        {
+            try
+            {
+                // Выполняем запрос к Twitch API для получения нового токена
+                var newAccessToken = await FetchNewAccessTokenAsync();
+                var tokenExpiry = DateTime.UtcNow.AddHours(1); // Пример: токен действует 1 час
+
+                // Обновляем токен в конфигурации
+                _configManager.UpdateAccessToken(newAccessToken, tokenExpiry);
+            }
+            catch (Exception ex)
+            {
+                // Логируем ошибку и выбрасываем исключение дальше для обработки
+                Console.WriteLine($"Ошибка при попытке авторизации в Twitch API: {ex.Message}");
+                throw;
+            }
+        }
+
+        private async Task<string> FetchNewAccessTokenAsync()
+        {
+            var twitchConfig = _configManager.GetConfig();
+
+            if (string.IsNullOrEmpty(twitchConfig.ClientId) || string.IsNullOrEmpty(twitchConfig.ClientSecret))
+            {
+                throw new InvalidOperationException("Client ID или Client Secret не настроены в twitch.json.");
+            }
+
+            using var httpClient = new HttpClient();
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://id.twitch.tv/oauth2/token")
+            {
+                Content = new FormUrlEncodedContent(new[]
+                {
+            new KeyValuePair<string, string>("client_id", twitchConfig.ClientId),
+            new KeyValuePair<string, string>("client_secret", twitchConfig.ClientSecret),
+            new KeyValuePair<string, string>("grant_type", "client_credentials")
+        })
+            };
+
+            var response = await httpClient.SendAsync(request);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                throw new InvalidOperationException($"Не удалось получить токен Twitch API: {response.StatusCode}, {error}");
+            }
+
+            var jsonResponse = await response.Content.ReadAsStringAsync();
+
+            Console.Write(jsonResponse);
+            var tokenResponse = JsonSerializer.Deserialize<TwitchTokenResponse>(jsonResponse);
+
+            if (tokenResponse == null || string.IsNullOrEmpty(tokenResponse.AccessToken))
+            {
+                throw new InvalidOperationException("Ответ Twitch API не содержит токен.");
+            }
+
+            return tokenResponse.AccessToken;
+        }
+
     }
+
 
     /// <summary>
-    /// Получение токена через Client Credentials Flow.
+    /// Модель ответа от Twitch API при запросе токена.
     /// </summary>
-    public async Task AuthenticateAsync()
+    public class TwitchTokenResponse
     {
-        var config = _configManager.GetConfig();
-        if (string.IsNullOrEmpty(config.ClientId) || string.IsNullOrEmpty(config.ClientSecret))
-        {
-            throw new InvalidOperationException("Client ID или Client Secret не настроены в twitch.json.");
-        }
-
-        var tokenUrl = "https://id.twitch.tv/oauth2/token";
-        var requestBody = new FormUrlEncodedContent(new[]
-        {
-            new KeyValuePair<string, string>("client_id", config.ClientId),
-            new KeyValuePair<string, string>("client_secret", config.ClientSecret),
-            new KeyValuePair<string, string>("grant_type", "client_credentials")
-        });
-
-        var response = await _httpClient.PostAsync(tokenUrl, requestBody);
-        response.EnsureSuccessStatusCode();
-
-        var responseContent = await response.Content.ReadAsStringAsync();
-        var tokenResponse = JsonSerializer.Deserialize<TwitchTokenResponse>(responseContent);
-
-        if (tokenResponse == null || string.IsNullOrEmpty(tokenResponse.AccessToken))
-        {
-            throw new Exception("Ошибка получения токена от Twitch API.");
-        }
-
-        // Обновляем токен в конфигурации
-        _configManager.UpdateAccessToken(tokenResponse.AccessToken, DateTime.UtcNow.AddSeconds(tokenResponse.ExpiresIn));
-        Console.WriteLine("[TwitchAuthService] Токен успешно обновлен и сохранен.");
+        public string AccessToken { get; set; }
+        public int ExpiresIn { get; set; }
+        public string TokenType { get; set; }
     }
-}
-
-/// <summary>
-/// Модель ответа от Twitch API при запросе токена.
-/// </summary>
-public class TwitchTokenResponse
-{
-    public string AccessToken { get; set; }
-    public int ExpiresIn { get; set; }
-    public string TokenType { get; set; }
 }

@@ -28,22 +28,45 @@ public class TwitchConfigManager
     /// </summary>
     private void LoadConfig()
     {
-        if (!Directory.Exists(ConfigFolder))
+        try
         {
-            Directory.CreateDirectory(ConfigFolder);
-        }
+            if (!Directory.Exists(ConfigFolder))
+            {
+                Directory.CreateDirectory(ConfigFolder);
+            }
 
-        if (!File.Exists(ConfigFilePath))
-        {
-            _config = new TwitchConfig();
-            SaveConfig();
-        }
-        else
-        {
+            if (!File.Exists(ConfigFilePath))
+            {
+                _config = new TwitchConfig
+                {
+                    ClientId = "",
+                    ClientSecret = "",
+                    AccessToken = "",
+                    TokenExpiry = DateTime.UtcNow
+                };
+
+                SaveConfig();
+                Console.WriteLine($"Файл {ConfigFilePath} был создан. Укажите Client ID и Client Secret в файле перед следующим запуском.");
+                return;
+            }
+
             var json = File.ReadAllText(ConfigFilePath);
             _config = JsonSerializer.Deserialize<TwitchConfig>(json) ?? new TwitchConfig();
+
+            // Проверяем, что ClientId и ClientSecret заполнены
+            if (string.IsNullOrWhiteSpace(_config.ClientId) || string.IsNullOrWhiteSpace(_config.ClientSecret))
+            {
+                Console.WriteLine("Client ID или Client Secret не настроены в twitch.json. Функциональность Twitch API будет отключена.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка в TwitchConfigManager: {ex.Message}");
+            _config = new TwitchConfig(); // Заглушка на случай ошибки
         }
     }
+
+
 
     /// <summary>
     /// Сохраняет текущую конфигурацию в файл.

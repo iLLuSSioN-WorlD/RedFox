@@ -1,54 +1,70 @@
 ﻿using Discord.WebSocket;
 using Discord;
+using DiscordBot;
 using Microsoft.Extensions.DependencyInjection;
-using System.Net.Http;
 
-namespace DiscordBot
+class Program
 {
-    class Program
+    static async Task Main(string[] args)
     {
-        static async Task Main(string[] args)
+        var configManager = new ConfigManager(); // Загружаем основную конфигурацию
+        var twitchConfigManager = new TwitchConfigManager();
+        var twitchConfig = twitchConfigManager.GetConfig();
+
+        // Проверяем, корректно ли настроен Twitch API
+        if (string.IsNullOrWhiteSpace(twitchConfig.ClientId) || string.IsNullOrWhiteSpace(twitchConfig.ClientSecret))
         {
-            var configManager = new ConfigManager(); // Загружаем основную конфигурацию
+            Console.WriteLine("Twitch API отключен: Проверьте настройки в twitch.json.");
+        }
+        else
+        {
+            var twitchAuthService = new TwitchAuthService(twitchConfigManager);
 
-
-
-            var client = new DiscordSocketClient(new DiscordSocketConfig
+            try
             {
-                GatewayIntents = GatewayIntents.Guilds |
-                                 GatewayIntents.GuildMessages |
-                                 GatewayIntents.DirectMessages |
-                                 GatewayIntents.MessageContent
-            });
-
-
-
-            var serviceProvider = new ServiceCollection()
-                .AddSingleton(client)
-                .AddSingleton<CommandHandler>()
-                .AddSingleton<ICommand, PingCommand>()
-                .AddSingleton<ICommand, RollCommand>()
-                .AddSingleton<ICommand, TwitchDropsCommand>()
-                .AddSingleton<RandomNumberService>()
-                .AddSingleton<EmojiConverterService>()
-                .AddSingleton(configManager.Config)
-                .AddSingleton(new HttpClient())
-                .AddSingleton<TwitchDropsScraper>()
-                .BuildServiceProvider();
-
-
-            var bot = serviceProvider.GetRequiredService<CommandHandler>();
-
-            client.Log += LogAsync;
-
-            await bot.InitializeAsync();
-            await Task.Delay(-1);
+                // Пытаемся обновить токен Twitch
+                await twitchAuthService.AuthenticateAsync();
+                Console.WriteLine("Twitch API: Токен успешно обновлен.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка авторизации Twitch API: {ex.Message}");
+                Console.WriteLine("Продолжаем работу без Twitch API.");
+            }
         }
 
-        private static Task LogAsync(LogMessage log)
+        var client = new DiscordSocketClient(new DiscordSocketConfig
         {
-            Console.WriteLine(log.ToString());
-            return Task.CompletedTask;
-        }
+            GatewayIntents = GatewayIntents.Guilds |
+                             GatewayIntents.GuildMessages |
+                             GatewayIntents.DirectMessages |
+                             GatewayIntents.MessageContent
+        });
+
+        var serviceProvider = new ServiceCollection()
+            .AddSingleton(client)
+            .AddSingleton<CommandHandler>()
+            .AddSingleton<ICommand, PingCommand>()
+            .AddSingleton<ICommand, RollCommand>()
+            .AddSingleton<ICommand, TwitchDropsCommand>()
+            .AddSingleton<RandomNumberService>()
+            .AddSingleton<EmojiConverterService>()
+            .AddSingleton(configManager.Config)
+            .AddSingleton(new HttpClient())
+            .AddSingleton<TwitchDropsScraper>()
+            .BuildServiceProvider();
+
+        var bot = serviceProvider.GetRequiredService<CommandHandler>();
+
+        client.Log += LogAsync;
+
+        await bot.InitializeAsync();
+        await Task.Delay(-1); // Бесконечное ожидание, чтобы бот оставался онлайн
+    }
+
+    private static Task LogAsync(LogMessage log)
+    {
+        Console.WriteLine(log.ToString());
+        return Task.CompletedTask;
     }
 }
