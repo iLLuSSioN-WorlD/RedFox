@@ -14,14 +14,14 @@ namespace DiscordBot
         private readonly DiscordSocketClient _client;
         private readonly IServiceProvider _services;
         private readonly Config _config;
-        private readonly TwitchDropsService _twitchDropsService;
 
-        public CommandHandler(DiscordSocketClient client, IServiceProvider services, Config config, TwitchDropsService twitchDropsService)
+
+        public CommandHandler(DiscordSocketClient client, IServiceProvider services, Config config)
         {
             _client = client;
             _services = services;
             _config = config;
-            _twitchDropsService = twitchDropsService;
+
 
             // Подключаем обработчики событий
             _client.MessageReceived += HandleCommandAsync;

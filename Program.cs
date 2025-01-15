@@ -10,8 +10,8 @@ namespace DiscordBot
         static async Task Main(string[] args)
         {
             var configManager = new ConfigManager(); // Загружаем основную конфигурацию
-            var twitchConfigManager = new TwitchConfigManager();
-            var twitchConfig = twitchConfigManager.LoadConfig(TwitchConfigManager.ConfigFilePath); // Загружаем конфигурацию Twitch
+
+
 
             var client = new DiscordSocketClient(new DiscordSocketConfig
             {
@@ -32,14 +32,9 @@ namespace DiscordBot
                 .AddSingleton<RandomNumberService>()
                 .AddSingleton<EmojiConverterService>()
                 .AddSingleton(configManager.Config)
-                .AddSingleton(twitchConfig) // Передаём объект TwitchConfig
                 .AddSingleton(new HttpClient())
-                .AddSingleton<TwitchConfigManager>() // Регистрируем менеджер конфигурации
-                .AddSingleton<TwitchAuthService>()
-                .AddSingleton<TwitchDropsService>()
                 .AddSingleton<TwitchDropsScraper>()
                 .BuildServiceProvider();
-
 
 
             var bot = serviceProvider.GetRequiredService<CommandHandler>();

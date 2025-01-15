@@ -18,17 +18,13 @@ namespace DiscordBot
         public async Task ExecuteAsync(IMessageChannel channel, IUser user)
         {
             var drops = await _scraper.GetTwitchDropsAsync();
-            await channel.SendMessageAsync(string.IsNullOrWhiteSpace(drops)
-                ? "Сейчас нет активных Twitch Drops."
-                : $"Актуальные Twitch Drops:\n{drops}");
+            await channel.SendMessageAsync(drops);
         }
 
         public async Task ExecuteSlashCommandAsync(SocketSlashCommand command)
         {
             var drops = await _scraper.GetTwitchDropsAsync();
-            await command.RespondAsync(string.IsNullOrWhiteSpace(drops)
-                ? "Сейчас нет активных Twitch Drops."
-                : $"Актуальные Twitch Drops:\n{drops}");
+            await command.RespondAsync(drops);
         }
 
         public ApplicationCommandProperties RegisterSlashCommand()
