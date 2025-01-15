@@ -70,20 +70,36 @@ namespace DiscordBot
 
         private async Task HandleInteractionAsync(SocketInteraction interaction)
         {
-            if (interaction is not SocketSlashCommand slashCommand) return;
+            // Убеждаемся, что это слэш-команда
+            if (interaction is not SocketSlashCommand slashCommand)
+                return;
 
-            foreach (var service in _services.GetServices<ICommand>())
+            // Обрабатываем команду в изолированной задаче
+            _ = Task.Run(async () =>
             {
-                if (service.CommandName == slashCommand.Data.Name)
+                try
                 {
-                    var command = service as dynamic;
-                    await command.ExecuteSlashCommandAsync(slashCommand);
-                    return;
-                }
-            }
+                    foreach (var service in _services.GetServices<ICommand>())
+                    {
+                        if (service.CommandName == slashCommand.Data.Name)
+                        {
+                            var command = service as dynamic;
+                            await command.ExecuteSlashCommandAsync(slashCommand);
+                            return;
+                        }
+                    }
 
-            await slashCommand.RespondAsync("Неизвестная команда.", ephemeral: true);
+                    await slashCommand.RespondAsync("Неизвестная команда.", ephemeral: true);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Ошибка при обработке команды: {ex.Message}");
+                    await slashCommand.RespondAsync("Произошла ошибка при выполнении команды.", ephemeral: true);
+                }
+            });
         }
+
+
 
         private async Task RegisterCommandsAsync()
         {

@@ -13,7 +13,8 @@ namespace DiscordBot
             {
                 // Инициализация Playwright
                 using var playwright = await Playwright.CreateAsync();
-                await using var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = true });
+                await using var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = false });
+
 
                 // Открываем новую страницу
                 var page = await browser.NewPageAsync();
