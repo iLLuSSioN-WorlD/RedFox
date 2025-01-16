@@ -1,31 +1,28 @@
 ﻿using Discord;
-using Discord.WebSocket;
 using Discord.Commands;
-using Microsoft.Extensions.DependencyInjection;
+using Discord.Net;
+using Discord.WebSocket;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
-using Discord.Net;
 
 namespace DiscordBot
 {
     public class CommandHandler
     {
         private readonly DiscordSocketClient _client;
-        private readonly IServiceProvider _services;
+        private readonly IEnumerable<ICommand> _commands;
         private readonly Config _config;
 
-
-        public CommandHandler(DiscordSocketClient client, IServiceProvider services, Config config)
+        public CommandHandler(DiscordSocketClient client, IEnumerable<ICommand> commands, Config config)
         {
             _client = client;
-            _services = services;
+            _commands = commands;
             _config = config;
 
-
-            // Подключаем обработчики событий
-            _client.MessageReceived += HandleCommandAsync;
-            _client.InteractionCreated += HandleInteractionAsync;
+            _client.MessageReceived += HandleTextCommandAsync;
+            _client.SlashCommandExecuted += HandleSlashCommandAsync;
         }
 
         public async Task InitializeAsync()
@@ -48,66 +45,50 @@ namespace DiscordBot
             await RegisterCommandsAsync();
         }
 
-        private async Task HandleCommandAsync(SocketMessage message)
+        private async Task HandleTextCommandAsync(SocketMessage message)
         {
-            if (message is not SocketUserMessage userMessage || message.Author.IsBot) return;
+            if (message is not SocketUserMessage userMessage) return;
 
-            if (!userMessage.Content.StartsWith(_config.Prefix)) return;
+            int argPos = 0;
+            if (!userMessage.HasCharPrefix('/', ref argPos)) return; // Проверяем, начинается ли команда с "/"
 
-            var command = userMessage.Content[_config.Prefix.Length..].Split(' ')[0].ToLower();
+            var commandContent = userMessage.Content.Substring(argPos);
+            var commandName = commandContent.Split(' ')[0].ToLower();
+            var args = commandContent.Substring(commandName.Length).Trim().Split(' ');
 
-            foreach (var service in _services.GetServices<ICommand>())
+            var command = _commands.FirstOrDefault(c => c.CommandName == commandName);
+
+            if (command != null)
             {
-                if (service.CommandName == command)
-                {
-                    await service.ExecuteAsync(userMessage.Channel, userMessage.Author);
-                    return;
-                }
+                await command.ExecuteAsync(userMessage.Channel, userMessage.Author, args);
             }
-
-            await userMessage.Channel.SendMessageAsync("Неизвестная команда.");
-        }
-
-        private async Task HandleInteractionAsync(SocketInteraction interaction)
-        {
-            // Убеждаемся, что это слэш-команда
-            if (interaction is not SocketSlashCommand slashCommand)
-                return;
-
-            // Обрабатываем команду в изолированной задаче
-            _ = Task.Run(async () =>
+            else
             {
-                try
-                {
-                    foreach (var service in _services.GetServices<ICommand>())
-                    {
-                        if (service.CommandName == slashCommand.Data.Name)
-                        {
-                            var command = service as dynamic;
-                            await command.ExecuteSlashCommandAsync(slashCommand);
-                            return;
-                        }
-                    }
-
-                    await slashCommand.RespondAsync("Неизвестная команда.", ephemeral: true);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Ошибка при обработке команды: {ex.Message}");
-                    await slashCommand.RespondAsync("Произошла ошибка при выполнении команды.", ephemeral: true);
-                }
-            });
+                await userMessage.Channel.SendMessageAsync($"Команда `{commandName}` не найдена.");
+            }
         }
 
+        private async Task HandleSlashCommandAsync(SocketSlashCommand command)
+        {
+            var matchingCommand = _commands.FirstOrDefault(c => c.CommandName == command.CommandName);
 
+            if (matchingCommand != null)
+            {
+                await matchingCommand.ExecuteSlashCommandAsync(command);
+            }
+            else
+            {
+                await command.RespondAsync($"Команда `{command.CommandName}` не найдена.", ephemeral: true);
+            }
+        }
 
         private async Task RegisterCommandsAsync()
         {
             var commands = new List<ApplicationCommandProperties>();
 
-            foreach (var service in _services.GetServices<ICommand>())
+            foreach (var command in _commands)
             {
-                commands.Add(service.RegisterSlashCommand());
+                commands.Add(command.RegisterSlashCommand());
             }
 
             try

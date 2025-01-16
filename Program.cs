@@ -2,36 +2,15 @@
 using Discord;
 using DiscordBot;
 using Microsoft.Extensions.DependencyInjection;
+using DiscordBot.Commands;
+using Victoria;
+using RedFox.Core.Services;
 
 class Program
 {
     static async Task Main(string[] args)
     {
         var configManager = new ConfigManager(); // Загружаем основную конфигурацию
-        var twitchConfigManager = new TwitchConfigManager();
-        var twitchConfig = twitchConfigManager.GetConfig();
-
-        // Проверяем, корректно ли настроен Twitch API
-        if (string.IsNullOrWhiteSpace(twitchConfig.ClientId) || string.IsNullOrWhiteSpace(twitchConfig.ClientSecret))
-        {
-            Console.WriteLine("Twitch API отключен: Проверьте настройки в twitch.json.");
-        }
-        else
-        {
-            var twitchAuthService = new TwitchAuthService(twitchConfigManager);
-
-            try
-            {
-                // Пытаемся обновить токен Twitch
-                await twitchAuthService.AuthenticateAsync();
-                Console.WriteLine("Twitch API: Токен успешно обновлен.");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка авторизации Twitch API: {ex.Message}");
-                Console.WriteLine("Продолжаем работу без Twitch API.");
-            }
-        }
 
         var client = new DiscordSocketClient(new DiscordSocketConfig
         {
@@ -41,30 +20,42 @@ class Program
                              GatewayIntents.MessageContent
         });
 
+
         var serviceProvider = new ServiceCollection()
             .AddSingleton(client)
             .AddSingleton<CommandHandler>()
             .AddSingleton<ICommand, PingCommand>()
             .AddSingleton<ICommand, RollCommand>()
-            .AddSingleton<ICommand, TwitchDropsCommand>()
+            .AddSingleton<ICommand, RpsCommand>()
+            .AddSingleton<ICommand, TestMentionedUserCommand>()            
             .AddSingleton<RandomNumberService>()
             .AddSingleton<EmojiConverterService>()
             .AddSingleton(configManager.Config)
-            .AddSingleton(new HttpClient())
-            .AddSingleton<TwitchDropsScraper>()
+
             .BuildServiceProvider();
 
         var bot = serviceProvider.GetRequiredService<CommandHandler>();
-
         client.Log += LogAsync;
 
         await bot.InitializeAsync();
-        await Task.Delay(-1); // Бесконечное ожидание, чтобы бот оставался онлайн
+        await Task.Delay(-1);
     }
+
 
     private static Task LogAsync(LogMessage log)
     {
         Console.WriteLine(log.ToString());
         return Task.CompletedTask;
+    }
+
+    public async Task InitializeLavaNodeAsync(IServiceProvider serviceProvider)
+    {
+        var lavaNode = serviceProvider.GetRequiredService<LavaNode<LavaPlayer, LavaTrack>>();
+
+        if (!lavaNode.IsConnected)
+        {
+            await lavaNode.ConnectAsync();
+            Console.WriteLine("LavaNode успешно подключен!");
+        }
     }
 }

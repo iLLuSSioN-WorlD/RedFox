@@ -17,7 +17,7 @@ namespace DiscordBot
 
         public string CommandName => "roll";
 
-        public async Task ExecuteAsync(IMessageChannel channel, IUser user)
+        public async Task ExecuteAsync(IMessageChannel channel, IUser user, string[] args)
         {
             var randomNumber = _randomService.Generate(1, 100);
             var emojiString = _emojiConverter.ConvertNumberToEmoji(randomNumber, 3);

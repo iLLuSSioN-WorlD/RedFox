@@ -2,17 +2,19 @@
 using Discord.WebSocket;
 using System.Threading.Tasks;
 
-namespace DiscordBot
+namespace DiscordBot.Commands
 {
     public class PingCommand : ICommand
     {
         public string CommandName => "ping";
 
-        public async Task ExecuteAsync(IMessageChannel channel, IUser user)
+        // Для текстовых команд
+        public async Task ExecuteAsync(IMessageChannel channel, IUser user, string[] args)
         {
             await channel.SendMessageAsync($"Pong! Привет, <@{user.Id}>!");
         }
 
+        // Для слэш-команд
         public async Task ExecuteSlashCommandAsync(SocketSlashCommand command)
         {
             await command.RespondAsync("Pong!");
