@@ -1,7 +1,8 @@
 using Discord;
 using Discord.WebSocket;
+using RedFox.Core.Services;
 using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -10,147 +11,151 @@ namespace DiscordBot.Commands
     public class RpsCommand : ICommand
     {
         private readonly DiscordSocketClient _client;
-
-        public RpsCommand(DiscordSocketClient client)
-        {
-            _client = client;
-        }
+        private readonly DuelService _duelService;
+        private readonly ConcurrentDictionary<ulong, ulong> _duelRequests;
 
         public string CommandName => "rps";
 
-        private static readonly string[] Choices = { "камень", "ножницы", "бумага" };
-
-        // Словарь для хранения активных вызовов (ключ — вызывающий игрок, значение — вызываемый игрок)
-        private static readonly Dictionary<ulong, ulong> DuelRequests = new Dictionary<ulong, ulong>();
-
-        // Словарь для хранения выборов игроков
-        private static readonly Dictionary<ulong, string> PlayerChoices = new Dictionary<ulong, string>();
-
-        // Метод обработки текстовых команд
-        public async Task ExecuteAsync(IMessageChannel channel, IUser user, string[] args)
+        // Конструктор
+        public RpsCommand(DiscordSocketClient client, DuelService duelService)
         {
-            if (args.Length < 1)
-            {
-                await channel.SendMessageAsync("Пожалуйста, укажите игрока для дуэли.");
-                return;
-            }
+            _client = client;
+            _duelService = duelService;
+            _duelRequests = new ConcurrentDictionary<ulong, ulong>();
 
-            var mentionedUser = ExtractUserFromMention(args[0]);
-            if (mentionedUser == null || mentionedUser.Id == user.Id)
-            {
-                await channel.SendMessageAsync("Вы не можете вызвать самого себя на дуэль.");
-                return;
-            }
-
-            // Проверяем, есть ли активный вызов на дуэль между этими игроками
-            if (DuelRequests.ContainsKey(user.Id))
-            {
-                await channel.SendMessageAsync($"Вы уже вызвали {mentionedUser.Mention} на дуэль. Ожидайте ответа.");
-                return;
-            }
-
-            if (DuelRequests.ContainsValue(user.Id))
-            {
-                await channel.SendMessageAsync("Вы не можете вызывать других игроков, пока не завершили текущую дуэль.");
-                return;
-            }
-
-            // Добавляем вызов в список активных дуэлей
-            DuelRequests[user.Id] = mentionedUser.Id;
-            await channel.SendMessageAsync($"{mentionedUser.Mention}, {user.Mention} вызвал вас на дуэль! Напишите `/rps принять`, чтобы принять вызов.");
+            // Подписка на событие добавления реакции
+            _client.ReactionAdded += OnReactionAddedAsync;
         }
 
-        // Метод обработки слэш-команд
+        // Метод для запуска команды /rps
+        public async Task ExecuteAsync(IMessageChannel channel, IUser user, string[] args)
+        {
+            try
+            {
+                // Проверяем, что аргументы есть
+                if (args.Length < 1)
+                {
+                    await channel.SendMessageAsync("Пожалуйста, укажите игрока для дуэли.");
+                    return;
+                }
+
+                // Извлекаем пользователя из упоминания
+                var mentionedUser = _duelService.ExtractUserFromMention(args[0]);
+                if (mentionedUser == null)
+                {
+                    await channel.SendMessageAsync("Не удалось определить пользователя. Убедитесь, что вы правильно указали оппонента.");
+                    return;
+                }
+
+                // Проверяем, что пользователь не вызывает сам себя
+                if (mentionedUser.Id == user.Id)
+                {
+                    await channel.SendMessageAsync("Вы не можете вызвать самого себя на дуэль.");
+                    return;
+                }
+
+                // Создаем дуэль
+                var result = await _duelService.CreateDuelAsync(channel, user, mentionedUser);
+
+                if (!result)
+                {
+                    await channel.SendMessageAsync($"<@{user.Id}>, вы уже участвуете в активной дуэли или ожидаете ответа.");
+                }
+                else
+                {
+                    // Отправляем сообщение и добавляем реакции
+                    var message = await channel.SendMessageAsync($"{mentionedUser.Mention}, {user.Mention} вызвал вас на дуэль! Нажмите 👍 для принятия, или 👎 для отклонения.");
+
+                    // Добавляем реакции на сообщение
+                    await message.AddReactionAsync(new Emoji("👍"));
+                    await message.AddReactionAsync(new Emoji("👎"));
+                }
+            }
+            catch (Exception ex)
+            {
+                await channel.SendMessageAsync("Произошла ошибка при обработке команды. Проверьте логи.");
+                Console.WriteLine($"Ошибка в RpsCommand.ExecuteAsync: {ex.Message}");
+            }
+        }
+
+        // Метод обработки реакции на сообщение
+        private async Task OnReactionAddedAsync(Cacheable<IUserMessage, ulong> cache, Cacheable<IMessageChannel, ulong> channelCache, SocketReaction reaction)
+        {
+            try
+            {
+                var channel = await channelCache.GetOrDownloadAsync();
+                var message = await cache.GetOrDownloadAsync();
+
+                // Проверяем, что сообщение и канал существуют
+                if (message == null || channel == null) return;
+
+                // Проверяем, является ли реакция одной из нужных
+                if (reaction.Emote.Name != "👍" && reaction.Emote.Name != "👎") return;
+
+                // Проверяем, кто добавил реакцию (только вызываемый пользователь)
+                if (reaction.UserId == message.Author.Id)
+                {
+                    if (reaction.Emote.Name == "👍")
+                    {
+                        // Принятие дуэли
+                        await channel.SendMessageAsync($"Дуэль началась между <@{message.Author.Id}> и <@{reaction.UserId}>! Выберите камень, ножницы или бумагу.");
+                    }
+                    else if (reaction.Emote.Name == "👎")
+                    {
+                        // Отклонение дуэли
+                        await channel.SendMessageAsync($"<@{reaction.UserId}> отклонил вызов от <@{message.Author.Id}>.");
+                    }
+
+                    // Удаляем дуэль из списка запросов
+                    _duelRequests.TryRemove(message.Author.Id, out _);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при обработке реакции: {ex.Message}");
+            }
+        }
+
+        // Метод для регистрации слэш-команды
+        public ApplicationCommandProperties RegisterSlashCommand()
+        {
+            return new SlashCommandBuilder()
+                .WithName("rps")
+                .WithDescription("Вызвать игрока на дуэль Камень-Ножницы-Бумага")
+                .AddOption("user", ApplicationCommandOptionType.User, "Игрок для вызова", isRequired: true)
+                .Build();
+        }
+
+        // Метод для обработки слэш-команды
         public async Task ExecuteSlashCommandAsync(SocketSlashCommand command)
         {
-            var mentionedUser = command.Data.Options.FirstOrDefault(o => o.Name == "user")?.Value as SocketUser;
-            var userChoice = command.Data.Options.FirstOrDefault(o => o.Name == "choice")?.Value?.ToString().ToLower();
-
-            if (mentionedUser == null)
+            var userOption = command.Data.Options.FirstOrDefault(opt => opt.Name == "user")?.Value as SocketUser;
+            if (userOption == null)
             {
-                await command.RespondAsync("Укажите игрока для дуэли.");
+                await command.RespondAsync("Пожалуйста, укажите игрока для дуэли.");
                 return;
             }
 
-            if (mentionedUser.Id == command.User.Id)
+            var user = command.User;
+
+            // Проверяем, что пользователь не вызывает сам себя
+            if (userOption.Id == user.Id)
             {
                 await command.RespondAsync("Вы не можете вызвать самого себя на дуэль.");
                 return;
             }
 
-            if (DuelRequests.ContainsKey(command.User.Id))
+            // Создаем дуэль
+            var result = await _duelService.CreateDuelAsync(command.Channel, user, userOption);
+
+            if (!result)
             {
-                await command.RespondAsync($"Вы уже вызвали {mentionedUser.Mention} на дуэль. Ожидайте его ответа.");
-                return;
+                await command.RespondAsync($"<@{user.Id}>, вы уже участвуете в активной дуэли или ожидаете ответа.");
             }
-
-            if (DuelRequests.ContainsValue(command.User.Id))
+            else
             {
-                await command.RespondAsync("Вы не можете вызывать других игроков, пока не завершили текущую дуэль.");
-                return;
+                await command.RespondAsync($"Вы вызвали <@{userOption.Id}> на дуэль! Ожидайте его ответа.");
             }
-
-            // Добавляем вызов в список активных дуэлей
-            DuelRequests[command.User.Id] = mentionedUser.Id;
-            await command.RespondAsync($"{mentionedUser.Mention}, {command.User.Mention} вызвал вас на дуэль! Напишите `/rps принять`, чтобы принять вызов.");
-        }
-
-        // Метод для принятия вызова
-        public async Task AcceptDuelAsync(SocketSlashCommand command)
-        {
-            if (!DuelRequests.ContainsValue(command.User.Id))
-            {
-                await command.RespondAsync("Вы не получили вызов на дуэль или уже приняли его.");
-                return;
-            }
-
-            // Находим игрока, вызвавшего текущего пользователя
-            var challenger = DuelRequests.FirstOrDefault(kvp => kvp.Value == command.User.Id).Key;
-
-            // Удаляем вызов из списка
-            DuelRequests.Remove(challenger);
-
-            await command.RespondAsync($"{command.User.Mention} принял вызов от {challenger}. Выберите: камень, ножницы или бумага.");
-        }
-
-        // Метод для извлечения пользователя из упоминания
-        private IUser ExtractUserFromMention(string mention)
-        {
-            if (mention.StartsWith("<@") && mention.EndsWith(">"))
-            {
-                var userIdString = mention.Trim('<', '@', '>');
-                if (ulong.TryParse(userIdString, out ulong userId))
-                {
-                    return _client.GetUser(userId);
-                }
-            }
-
-            return null;
-        }
-
-        // Метод для определения результата игры
-        private string GetResult(string userChoice, string opponentChoice)
-        {
-            if (userChoice == opponentChoice)
-                return "Ничья!";
-
-            if ((userChoice == "камень" && opponentChoice == "ножницы") ||
-                (userChoice == "ножницы" && opponentChoice == "бумага") ||
-                (userChoice == "бумага" && opponentChoice == "камень"))
-                return "Ты выиграл!";
-
-            return "Ты проиграл!";
-        }
-
-        // Регистрация слэш-команды
-        public ApplicationCommandProperties RegisterSlashCommand()
-        {
-            return new SlashCommandBuilder()
-                .WithName("rps")
-                .WithDescription("Игра Камень, Ножницы, Бумага.")
-                .AddOption("user", ApplicationCommandOptionType.User, "Выберите оппонента для дуэли.", true)
-                .AddOption("choice", ApplicationCommandOptionType.String, "Выберите камень, ножницы или бумагу.", false)
-                .Build();
         }
     }
 }

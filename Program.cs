@@ -29,6 +29,7 @@ class Program
             .AddSingleton<ICommand, RpsCommand>()
             .AddSingleton<ICommand, TestMentionedUserCommand>()            
             .AddSingleton<RandomNumberService>()
+            .AddSingleton<DuelService>()
             .AddSingleton<EmojiConverterService>()
             .AddSingleton(configManager.Config)
 
