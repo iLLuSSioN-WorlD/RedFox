@@ -4,7 +4,6 @@ using DiscordBot;
 using Microsoft.Extensions.DependencyInjection;
 using DiscordBot.Commands;
 using Victoria;
-using RedFox.Core.Services;
 using DiscordBot.Services;
 using System.Threading.Tasks;
 
@@ -30,7 +29,6 @@ class Program
             .AddSingleton<IDiceService, DiceService>()
             .AddSingleton<DiceMessageService>()
             .AddSingleton<ErrorHandlingService>()
-            .AddSingleton<DuelService>()
             .AddSingleton<EmojiConverterService>()
             .AddSingleton(configManager.Config)
             .AddSingleton<ICommand, GamesCommand>()
