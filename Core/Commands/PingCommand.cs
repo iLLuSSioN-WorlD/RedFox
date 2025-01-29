@@ -20,6 +20,12 @@ namespace DiscordBot.Commands
             await command.RespondAsync("Pong!");
         }
 
+        // Для кнопок
+        public async Task ExecuteComponentCommandAsync(SocketMessageComponent component) // ✅ Реализован метод для кнопок
+        {
+            await component.RespondAsync("Pong!");
+        }
+
         public ApplicationCommandProperties RegisterSlashCommand()
         {
             return new SlashCommandBuilder()

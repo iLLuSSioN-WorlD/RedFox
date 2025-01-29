@@ -141,6 +141,14 @@ namespace DiscordBot.Commands
             }
         }
 
+        // Реализуем метод ExecuteComponentCommandAsync для кнопок
+        public async Task ExecuteComponentCommandAsync(SocketMessageComponent component) // ✅ Добавлен метод для кнопок
+        {
+            // Логика для кнопок будет зависеть от контекста игры.
+            // Например, можно добавить новый бросок кубиков или дополнительную информацию.
+            await component.RespondAsync("Вы нажали на кнопку с игрой в кубики!");
+        }
+
         // Регистрируем команду в Slash-командах
         public ApplicationCommandProperties RegisterSlashCommand()
         {

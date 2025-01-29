@@ -6,6 +6,7 @@ using DiscordBot.Commands;
 using Victoria;
 using RedFox.Core.Services;
 using DiscordBot.Services;
+using System.Threading.Tasks;
 
 class Program
 {
@@ -24,22 +25,33 @@ class Program
         var serviceProvider = new ServiceCollection()
             .AddSingleton(client)
             .AddSingleton<CommandHandler>()
-            .AddSingleton<ICommand, PingCommand>()
-            .AddSingleton<ICommand, RollCommand>()
-            .AddSingleton<ICommand, DiceCommand>()  // Убедитесь, что добавили DiceCommand
-            .AddSingleton<ICommand, RpsCommand>()
-            .AddSingleton<ICommand, TestMentionedUserCommand>()
-            .AddSingleton<IDiceService, DiceService>()  // Добавляем DiceService
-            .AddSingleton<DiceMessageService>()  // Добавляем DiceMessageService
             .AddSingleton<RandomNumberService>()
+            .AddSingleton<ICommand, PingCommand>()
+            .AddSingleton<IDiceService, DiceService>()
+            .AddSingleton<DiceMessageService>()
             .AddSingleton<ErrorHandlingService>()
             .AddSingleton<DuelService>()
             .AddSingleton<EmojiConverterService>()
             .AddSingleton(configManager.Config)
+            .AddSingleton<ICommand, GamesCommand>()
+            .AddSingleton<CoinCommand>()  // Теперь регистрируем как сервис
+            .AddSingleton<DiceCommand>()
+            .AddSingleton<RollCommand>()
+            .AddSingleton<RpsCommand>()
+            .AddSingleton<ButtonHandler>() // Подключаем обработчик кнопок
             .BuildServiceProvider();
 
         var bot = serviceProvider.GetRequiredService<CommandHandler>();
+        var buttonHandler = serviceProvider.GetRequiredService<ButtonHandler>();
+
         client.Log += LogAsync;
+        client.InteractionCreated += async interaction =>
+        {
+            if (interaction is SocketMessageComponent component)
+            {
+                await buttonHandler.HandleButtonClick(component);
+            }
+        };
 
         await bot.InitializeAsync();
         await Task.Delay(-1);
@@ -49,16 +61,5 @@ class Program
     {
         Console.WriteLine(log.ToString());
         return Task.CompletedTask;
-    }
-
-    public async Task InitializeLavaNodeAsync(IServiceProvider serviceProvider)
-    {
-        var lavaNode = serviceProvider.GetRequiredService<LavaNode<LavaPlayer, LavaTrack>>();
-
-        if (!lavaNode.IsConnected)
-        {
-            await lavaNode.ConnectAsync();
-            Console.WriteLine("LavaNode успешно подключен!");
-        }
     }
 }

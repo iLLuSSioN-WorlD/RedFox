@@ -157,5 +157,31 @@ namespace DiscordBot.Commands
                 await command.RespondAsync($"Вы вызвали <@{userOption.Id}> на дуэль! Ожидайте его ответа.");
             }
         }
+
+        // Реализуем метод ExecuteComponentCommandAsync для обработки нажатий на кнопки
+        public async Task ExecuteComponentCommandAsync(SocketMessageComponent component)
+        {
+            try
+            {
+                // Проверяем, что взаимодействие с кнопкой от правильного пользователя
+                if (component.User.IsBot)
+                    return;
+
+                // Логика для обработки нажатий на кнопки
+                if (component.Data.CustomId == "accept_duel")
+                {
+                    await component.RespondAsync("Дуэль принята!");
+                    // Тут можно добавить логику начала игры
+                }
+                else if (component.Data.CustomId == "decline_duel")
+                {
+                    await component.RespondAsync("Дуэль отклонена.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при обработке компонента: {ex.Message}");
+            }
+        }
     }
 }

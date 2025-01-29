@@ -1,10 +1,15 @@
-﻿using Discord.WebSocket;
-using Discord;
+﻿using Discord;
+using Discord.WebSocket;
+using System.Threading.Tasks;
 
-public interface ICommand
+namespace DiscordBot
 {
-    string CommandName { get; }
-    Task ExecuteAsync(IMessageChannel channel, IUser user, string[] args);
-    Task ExecuteSlashCommandAsync(SocketSlashCommand command);
-    ApplicationCommandProperties RegisterSlashCommand();
+    public interface ICommand
+    {
+        string CommandName { get; }
+        Task ExecuteAsync(IMessageChannel channel, IUser user, string[] args);
+        Task ExecuteSlashCommandAsync(SocketSlashCommand command);
+        Task ExecuteComponentCommandAsync(SocketMessageComponent component); // Добавили новый метод!
+        ApplicationCommandProperties RegisterSlashCommand();
+    }
 }
