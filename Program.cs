@@ -26,16 +26,14 @@ class Program
             .AddSingleton<CommandHandler>()
             .AddSingleton<RandomNumberService>()
             .AddSingleton<ICommand, PingCommand>()
+            .AddSingleton<ICommand, CoinCommand>()
+            .AddSingleton<ICommand, DiceCommand>()
+            .AddSingleton<ICommand, RollCommand>()
             .AddSingleton<IDiceService, DiceService>()
             .AddSingleton<DiceMessageService>()
             .AddSingleton<ErrorHandlingService>()
             .AddSingleton<EmojiConverterService>()
             .AddSingleton(configManager.Config)
-            .AddSingleton<ICommand, GamesCommand>()
-            .AddSingleton<CoinCommand>()  // Теперь регистрируем как сервис
-            .AddSingleton<DiceCommand>()
-            .AddSingleton<RollCommand>()
-            .AddSingleton<RpsCommand>()
             .BuildServiceProvider();
 
         var bot = serviceProvider.GetRequiredService<CommandHandler>();

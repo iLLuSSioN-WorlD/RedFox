@@ -43,6 +43,13 @@ namespace DiscordBot
                     break;
             }
 
+            // Проверка на корректность диапазона
+            if (minRollLimit >= maxRollLimit)
+            {
+                await channel.SendMessageAsync("Ошибка: минимальное значение не может быть больше или равно максимальному.");
+                return;
+            }
+
             var randomNumber = _randomService.Generate(minRollLimit, maxRollLimit);
             var emojiString = _emojiConverter.ConvertNumberToEmoji(randomNumber, 3);
             var message = $"<@{user.Id}> получает случайное число ({minRollLimit}-{maxRollLimit}): {emojiString}";
@@ -76,6 +83,13 @@ namespace DiscordBot
                     break;
             }
 
+            // Проверяем, что minRollLimit меньше maxRollLimit
+            if (minRollLimit >= maxRollLimit)
+            {
+                await command.RespondAsync("Ошибка: минимальное значение не может быть больше или равно максимальному.");
+                return;
+            }
+
             // Если нужно преобразовать long в int, делаем явное приведение с проверкой диапазона
             if (minRollLimit < int.MinValue || minRollLimit > int.MaxValue || maxRollLimit < int.MinValue || maxRollLimit > int.MaxValue)
             {
@@ -83,8 +97,10 @@ namespace DiscordBot
                 return;
             }
 
-            var randomNumber = _randomService.Generate((int)minRollLimit, (int)maxRollLimit); // Приводим к int
+            // Преобразуем значения minRollLimit и maxRollLimit в int и генерируем случайное число
+            var randomNumber = _randomService.Generate((int)minRollLimit, (int)maxRollLimit);
             var emojiString = _emojiConverter.ConvertNumberToEmoji(randomNumber, 3);
+
             var message = $"Ваше случайное число ({minRollLimit}-{maxRollLimit}): {emojiString}";
             await command.RespondAsync(message);
         }
@@ -94,8 +110,8 @@ namespace DiscordBot
             return new SlashCommandBuilder()
                 .WithName("roll")
                 .WithDescription("Сгенерировать случайное число в указанном диапазоне")
-                .AddOption("max", ApplicationCommandOptionType.Integer, "Максимальное значение", false)
                 .AddOption("min", ApplicationCommandOptionType.Integer, "Минимальное значение", false)
+                .AddOption("max", ApplicationCommandOptionType.Integer, "Максимальное значение", false)
                 .Build();
         }
     }
