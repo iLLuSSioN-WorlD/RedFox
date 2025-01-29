@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
@@ -9,59 +10,81 @@ namespace DiscordBot.Commands
     public class DiceCommand : ICommand
     {
         private readonly DiceService _diceService = new();
+        private readonly DiceMessageService _diceMessageService = new();
+        private readonly ErrorHandlingService _errorHandlingService = new();
 
         public string CommandName => "dice";
+
+        // Получение DisplayName или Username
+        private string GetUserName(IUser user)
+        {
+            return (user is SocketGuildUser guildUser) ? guildUser.DisplayName : user.Username;
+        }
+
+        // Проверка валидности кубика
+        private async Task<bool> ValidateDiceSidesAsync(IMessageChannel channel, int sides)
+        {
+            if (!_diceService.IsValidSides(sides))
+            {
+                string validSidesList = _diceService.GetValidSidesList();
+                await _errorHandlingService.SendErrorMessageAsync(channel, $"Недопустимое количество граней! Поддерживаемые значения: {validSidesList}.");
+                return false;
+            }
+            return true;
+        }
 
         // Реализация метода ExecuteAsync для команд с префиксом
         public async Task ExecuteAsync(IMessageChannel channel, IUser user, string[] args)
         {
             int sides = 6;  // по умолчанию 6-гранный кубик
+            int numDice = 1; // по умолчанию 1 кубик
             IUser? opponent = null;
 
             // Проверка аргументов
-            if (args.Length > 0)
+            if (args.Length > 0 && int.TryParse(args[0], out int parsedSides) && _diceService.IsValidSides(parsedSides))
             {
-                // Обработка первого аргумента для граней кубика
-                if (int.TryParse(args[0], out int parsedSides))
-                {
-                    // Проверка, что количество граней одно из допустимых
-                    if (parsedSides == 4 || parsedSides == 6 || parsedSides == 8 || parsedSides == 10 || parsedSides == 12 || parsedSides == 20)
-                    {
-                        sides = parsedSides;
-                    }
-                }
+                sides = parsedSides;
             }
 
-            // Проверка второго аргумента для нахождения соперника
-            if (args.Length > 1)
+            if (args.Length > 1 && int.TryParse(args[1], out int parsedNumDice))
             {
-                string userIdString = args[1].Trim('<', '@', '!', '>');
+                numDice = parsedNumDice;
+            }
+
+            if (args.Length > 2)
+            {
+                string userIdString = args[2].Trim('<', '@', '!', '>');
                 if (ulong.TryParse(userIdString, out ulong userId))
                 {
                     opponent = await channel.GetUserAsync(userId);
                 }
             }
 
-            // Если соперника нет, просто бросаем кубик
+            // Проверка валидности кубика
+            if (!await ValidateDiceSidesAsync(channel, sides)) return;
+
+            string userName = GetUserName(user);
+
+            // Если соперника нет, просто бросаем кубики
             if (opponent == null)
             {
-                int result = _diceService.Roll(sides);
-                await channel.SendMessageAsync($"🎲 {user.Mention} бросает `{sides}-гранный кубик` и получает `{result}`");
+                int[] results = _diceService.RollMultiple(sides, numDice);
+                string message = await _diceMessageService.GenerateMultipleRollMessageAsync(userName, sides, numDice, results);
+                await channel.SendMessageAsync(message);
             }
             else
             {
                 // Если соперник есть, бросаем два кубика и определяем победителя
-                int authorRoll = _diceService.Roll(sides);
-                int opponentRoll = _diceService.Roll(sides);
-                string outcome = authorRoll > opponentRoll ? "побеждает" : authorRoll < opponentRoll ? "проигрывает" : "ничья";
+                int[] authorRolls = _diceService.RollMultiple(sides, numDice);
+                int[] opponentRolls = _diceService.RollMultiple(sides, numDice);
+                string opponentName = GetUserName(opponent);
 
-                // Форматированный вывод без экранирования "}"
-                await channel.SendMessageAsync(
-                    $"🎲 {user.Mention} вызвал {opponent.Mention} на бросок `{sides}-гранного кубика`!\n\n" +
-                    $"🎲 {user.Mention} бросает и получает `{authorRoll}`\n" +
-                    $"🎲 {opponent.Mention} бросает и получает `{opponentRoll}`\n\n" +
-                    $"🏆 {user.Mention} {outcome}!"
-                );
+                int authorSum = authorRolls.Sum();
+                int opponentSum = opponentRolls.Sum();
+                string outcome = authorSum > opponentSum ? "побеждает" : authorSum < opponentSum ? "проигрывает" : "ничья";
+
+                string message = await _diceMessageService.GeneratePvPMessageAsync(userName, opponentName, sides, numDice, authorRolls, opponentRolls, outcome);
+                await channel.SendMessageAsync(message);
             }
         }
 
@@ -69,15 +92,20 @@ namespace DiscordBot.Commands
         public async Task ExecuteSlashCommandAsync(SocketSlashCommand command)
         {
             int sides = 6;  // по умолчанию 6-гранный кубик
+            int numDice = 1; // по умолчанию 1 кубик
             IUser? opponent = null;
             var options = command.Data.Options;
 
-            // Парсим параметр sides, если он передан
+            // Парсим параметры sides и numdice
             foreach (var option in options)
             {
                 if (option.Name == "sides" && option.Value is long sidesValue)
                 {
-                    sides = (int)sidesValue; // Преобразуем значение в int
+                    sides = (int)sidesValue;
+                }
+                else if (option.Name == "numdice" && option.Value is long numDiceValue)
+                {
+                    numDice = (int)numDiceValue;
                 }
                 else if (option.Name == "opponent" && option.Value is IUser user)
                 {
@@ -86,32 +114,30 @@ namespace DiscordBot.Commands
             }
 
             // Проверка валидности кубика
-            if (sides != 4 && sides != 6 && sides != 8 && sides != 10 && sides != 12 && sides != 20)
-            {
-                await command.RespondAsync("❌ Недопустимое количество граней! Поддерживаемые значения: 4, 6, 8, 10, 12, 20.");
-                return;
-            }
+            if (!await ValidateDiceSidesAsync(command.Channel, sides)) return;
 
-            // Если соперника нет, просто бросаем кубик
+            string userName = GetUserName(command.User);
+
+            // Если соперника нет, просто бросаем кубики
             if (opponent == null)
             {
-                int result = _diceService.Roll(sides);
-                await command.RespondAsync($"🎲 {command.User.Mention} бросает `{sides}-гранный кубик` и получает `{result}`");
+                int[] results = _diceService.RollMultiple(sides, numDice);
+                string message = await _diceMessageService.GenerateMultipleRollMessageAsync(userName, sides, numDice, results);
+                await command.RespondAsync(message);
             }
             else
             {
                 // Если соперник есть, бросаем два кубика и определяем победителя
-                int authorRoll = _diceService.Roll(sides);
-                int opponentRoll = _diceService.Roll(sides);
-                string outcome = authorRoll > opponentRoll ? "побеждает" : authorRoll < opponentRoll ? "проигрывает" : "ничья";
+                int[] authorRolls = _diceService.RollMultiple(sides, numDice);
+                int[] opponentRolls = _diceService.RollMultiple(sides, numDice);
+                string opponentName = GetUserName(opponent);
 
-                // Форматированный вывод без экранирования "}"
-                await command.RespondAsync(
-                    $"🎲 {command.User.Mention} вызвал {opponent.Mention} на бросок `{sides}-гранного кубика`!\n\n" +
-                    $"🎲 {command.User.Mention} бросает и получает `{authorRoll}`\n" +
-                    $"🎲 {opponent.Mention} бросает и получает `{opponentRoll}`\n\n" +
-                    $"🏆 {command.User.Mention} {outcome}!"
-                );
+                int authorSum = authorRolls.Sum();
+                int opponentSum = opponentRolls.Sum();
+                string outcome = authorSum > opponentSum ? "побеждает" : authorSum < opponentSum ? "проигрывает" : "ничья";
+
+                string message = await _diceMessageService.GeneratePvPMessageAsync(userName, opponentName, sides, numDice, authorRolls, opponentRolls, outcome);
+                await command.RespondAsync(message);
             }
         }
 
@@ -120,9 +146,10 @@ namespace DiscordBot.Commands
         {
             return new SlashCommandBuilder()
                 .WithName("dice")
-                .WithDescription("Бросить кубик с заданным количеством граней")
+                .WithDescription("Бросить кубики с заданным количеством граней")
                 .AddOption("sides", ApplicationCommandOptionType.Integer, "Количество граней кубика", false) // Сторона кубика по умолчанию, необязательна
-                .AddOption("opponent", ApplicationCommandOptionType.User, "Соперник для PvP броска", false) // Соперник для PvP
+                .AddOption("numdice", ApplicationCommandOptionType.Integer, "Количество кубиков для броска", false) // Параметр для количества кубиков
+                .AddOption("opponent", ApplicationCommandOptionType.User, "Соперник для PvP броска", false) // Параметр для соперника
                 .Build();
         }
     }

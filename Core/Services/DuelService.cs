@@ -107,6 +107,5 @@ namespace RedFox.Core.Services
                 Console.WriteLine($"Ошибка в OnReactionAddedAsync: {ex.Message}");
             }
         }
-
     }
 }

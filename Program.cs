@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using DiscordBot.Commands;
 using Victoria;
 using RedFox.Core.Services;
+using DiscordBot.Services;
 
 class Program
 {
@@ -20,20 +21,21 @@ class Program
                              GatewayIntents.MessageContent
         });
 
-
         var serviceProvider = new ServiceCollection()
             .AddSingleton(client)
             .AddSingleton<CommandHandler>()
             .AddSingleton<ICommand, PingCommand>()
             .AddSingleton<ICommand, RollCommand>()
-            .AddSingleton<ICommand, DiceCommand>()
+            .AddSingleton<ICommand, DiceCommand>()  // Убедитесь, что добавили DiceCommand
             .AddSingleton<ICommand, RpsCommand>()
-            .AddSingleton<ICommand, TestMentionedUserCommand>()            
+            .AddSingleton<ICommand, TestMentionedUserCommand>()
+            .AddSingleton<IDiceService, DiceService>()  // Добавляем DiceService
+            .AddSingleton<DiceMessageService>()  // Добавляем DiceMessageService
             .AddSingleton<RandomNumberService>()
+            .AddSingleton<ErrorHandlingService>()
             .AddSingleton<DuelService>()
             .AddSingleton<EmojiConverterService>()
             .AddSingleton(configManager.Config)
-
             .BuildServiceProvider();
 
         var bot = serviceProvider.GetRequiredService<CommandHandler>();
@@ -42,7 +44,6 @@ class Program
         await bot.InitializeAsync();
         await Task.Delay(-1);
     }
-
 
     private static Task LogAsync(LogMessage log)
     {
