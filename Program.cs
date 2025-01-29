@@ -26,6 +26,7 @@ class Program
             .AddSingleton<CommandHandler>()
             .AddSingleton<ICommand, PingCommand>()
             .AddSingleton<ICommand, RollCommand>()
+            .AddSingleton<ICommand, DiceCommand>()
             .AddSingleton<ICommand, RpsCommand>()
             .AddSingleton<ICommand, TestMentionedUserCommand>()            
             .AddSingleton<RandomNumberService>()
