@@ -88,16 +88,11 @@ namespace DiscordBot
 
             foreach (var command in _commands)
             {
-                var slashCommand = command.RegisterSlashCommand();
-                if (slashCommand != null)
-                {
-                    commands.Add(slashCommand);
-                }
+                commands.Add(command.RegisterSlashCommand());
             }
 
             try
             {
-                // Регистрируем или обновляем команды
                 await _client.BulkOverwriteGlobalApplicationCommandsAsync(commands.ToArray());
                 Console.WriteLine("Слэш-команды успешно зарегистрированы.");
             }
@@ -117,6 +112,5 @@ namespace DiscordBot
                 Console.WriteLine($"Общая ошибка при регистрации слэш-команд: {ex.Message}");
             }
         }
-
     }
 }

@@ -9,7 +9,6 @@ namespace DiscordBot
         string CommandName { get; }
         Task ExecuteAsync(IMessageChannel channel, IUser user, string[] args);
         Task ExecuteSlashCommandAsync(SocketSlashCommand command);
-        Task ExecuteComponentCommandAsync(SocketMessageComponent component); // Добавили новый метод!
         ApplicationCommandProperties RegisterSlashCommand();
     }
 }

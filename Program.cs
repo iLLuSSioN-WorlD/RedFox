@@ -36,20 +36,11 @@ class Program
             .AddSingleton<DiceCommand>()
             .AddSingleton<RollCommand>()
             .AddSingleton<RpsCommand>()
-            .AddSingleton<ButtonHandler>() // Подключаем обработчик кнопок
             .BuildServiceProvider();
 
         var bot = serviceProvider.GetRequiredService<CommandHandler>();
-        var buttonHandler = serviceProvider.GetRequiredService<ButtonHandler>();
 
         client.Log += LogAsync;
-        client.InteractionCreated += async interaction =>
-        {
-            if (interaction is SocketMessageComponent component)
-            {
-                await buttonHandler.HandleButtonClick(component);
-            }
-        };
 
         await bot.InitializeAsync();
         await Task.Delay(-1);

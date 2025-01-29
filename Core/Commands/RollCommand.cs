@@ -89,14 +89,6 @@ namespace DiscordBot
             await command.RespondAsync(message);
         }
 
-        public async Task ExecuteComponentCommandAsync(SocketMessageComponent component) // ✅ Добавили поддержку кнопок
-        {
-            var randomNumber = _randomService.Generate(1, 100);
-            var emojiString = _emojiConverter.ConvertNumberToEmoji(randomNumber, 3);
-            var message = $"Ваше случайное число (1-100): {emojiString}"; // Оставили исходный текст
-            await component.RespondAsync(message);
-        }
-
         public ApplicationCommandProperties RegisterSlashCommand()
         {
             return new SlashCommandBuilder()
